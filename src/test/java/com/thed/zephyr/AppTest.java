@@ -193,7 +193,7 @@ public class AppTest
         //.register(feature)
         .request()
         .header("Authorization", jwt)
-        .header("zapiAccessKey", "amlyYTo4MGNjZmU4Ny05YWE1LTQ5ZTYtODYwYS1mMzYzNzA1MWFlZGEgNWM2MWUzMzQ4MmNiNGY2NWVlZjU2OGQ1IFRlc3Q")
+        .header("zapiAccessKey", accessKey)
         .header("Content-Type", "text/plain")
         .get();
 
@@ -227,7 +227,7 @@ public class AppTest
         //.register(feature)
         .request()
         .header("Authorization", jwt)
-        .header("zapiAccessKey", "amlyYTo4MGNjZmU4Ny05YWE1LTQ5ZTYtODYwYS1mMzYzNzA1MWFlZGEgNWM2MWUzMzQ4MmNiNGY2NWVlZjU2OGQ1IFRlc3Q")
+        .header("zapiAccessKey", accessKey)
         .header("Content-Type", "text/plain")
         .get();
 
