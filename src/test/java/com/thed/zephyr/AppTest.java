@@ -22,7 +22,11 @@ import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation.Builder;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Form;
+import javax.ws.rs.core.Response.Status.Family;
 import javax.ws.rs.core.Feature;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 
@@ -61,38 +65,38 @@ public class AppTest
     //***VARIABLES***
     //Cross Browser Testing credientials found on the manage page. 
     //https://app.crossbrowsertesting.com/account
-    public  String cbtUsername = "";
-    public  String cbtAuthkey = "";
+    public final String cbtUsername = "";
+    public final String cbtAuthkey = "";
 
     //Zephyr credentials found under the apps tab on JIRA
-    public String accessKey = "";
-    public String secretKey = "";
+    public final String accessKey = "";
+    public final String secretKey = "";
 
     //Jira credentials
-    public String jiraUsername = "";
-    public String jiraPassword = "";
+    public final String jiraUsername = "";
+    public final String jiraPassword = "";
 
     //Version Id has to be set to use zephyr. After being set up you can find it here : 
-    //https://docs.atlassian.com/software/jira/docs/api/REST/7.6.1/?_ga=2.239951107.141879896.1552503325-1964191470.1549919588#api/2/project-getProject
-    public String versionId = "";      
-
+    public final String versionName = "";  //Ex: 1.0    
 
     //Jira Variables
     //This is the issue key an issue on Jira(this may not be generated until after your first test as Zephyr will create a new card)
-    public String issueTag = ""; //Ex: ZEP-3
-    public String zephyrCycleName = ""; //Ex: Our Zephyr Cycle
+    public final String issueTag = ""; //Ex: ZEP-3
+    public final String zephyrCycleName = "Our Zephyr Cycle";
 
     //Info that will be sent to the Jira following a passed CBT test
-    public String comment = "Attachment-through-ZAPI-CLoud";
+    public final String comment = "Attachment-through-ZAPI-CLoud";
+    //In your test you will need to save images locally so that they can be sent to jira. 
+    //This is an abosolute path to upload those files. 
 
     //Likely wont need to change these.
-    public String entityName = "execution"; 
-    public String API_ZEPHYR = "{SERVER}/public/rest/api/1.0/";
-    public String zephyrBaseUrl = "https://prod-api.zephyr4jiracloud.com/connect";
-    public int expirationInSec = 360;
+    public final String entityName = "execution"; 
+    public final String API_ZEPHYR = "{SERVER}/public/rest/api/1.0/";
+    public final String zephyrBaseUrl = "https://prod-api.zephyr4jiracloud.com/connect";
+    public final int expirationInSec = 360;
 
-    public ZFJCloudRestClient client = ZFJCloudRestClient.restBuilder(zephyrBaseUrl, accessKey, secretKey, jiraUsername).build();
-    public JwtGenerator jwtGenerator = client.getJwtGenerator();
+    public final ZFJCloudRestClient client = ZFJCloudRestClient.restBuilder(zephyrBaseUrl, accessKey, secretKey, jiraUsername).build();
+    public final JwtGenerator jwtGenerator = client.getJwtGenerator();
     public AutomatedTest myTest;
 
     public void testApp() throws Exception
@@ -150,17 +154,17 @@ public class AppTest
       String values[] = getJiraProjectId();
       String issueId = values[0];
       String projectId = values[1];
+      String versionId = values[2];
 
       //GATHER ZEPHYR INFO
-      String cycleId = getZephyrCycleId(projectId);
+      String cycleId = getZephyrCycleId(projectId, versionId);
       String entityId = getZephyrEntityId(projectId,issueId);
 
       //POST ARTIFACTS FROM CBT TO JIRA THROUGH ZEPHYR
-      //These would be the artifacts saved locally from above. 
-      String filePath = "/"; //Ex: "/Users/you/.jenkins/workspace/MyProject/mypicture.png"
-      String videofilePath = "/"; 
-      attachArtifactZephyr(issueId, cycleId, entityId, projectId, filePath);
-      attachArtifactZephyr(issueId, cycleId, entityId, projectId, videofilePath);
+      String filePath = "/Users/patrick.richardson/.jenkins/workspace/JenkinsZephyrAutomationProject/test/google.png";
+      String videofilePath = "/Users/patrick.richardson/.jenkins/workspace/JenkinsZephyrAutomationProject/test/myvideo.mp4";
+      attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, filePath);
+      attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, videofilePath);
       
     }
     public String[] getJiraProjectId() throws Exception{
@@ -177,9 +181,30 @@ public class AppTest
       JSONObject fieldObject = issueObject.getJSONObject("fields");
       JSONObject projectObject = fieldObject.getJSONObject("project");
       String projectId = projectObject.getString("id");
-      String ar[] = new String[2];
+
+      response = ClientBuilder.newClient()
+        .target("https://cbt-dev.atlassian.net/rest/api/2/project/" + projectId)
+        .register(feature)
+        .request()
+        //.header("Content-Type", "text/plain")
+        .get();
+
+        projectObject = new JSONObject(response.readEntity(String.class));
+        String versionId = null;
+        JSONArray versionArray = projectObject.getJSONArray("versions");
+        for (int i=0; i < versionArray.length(); i++){
+          JSONObject versionObject = versionArray.getJSONObject(i);
+          String versionNameTmp = versionObject.getString("name");
+          if(versionName.equals(versionNameTmp)){
+            versionId = versionObject.getString("id");
+            break;
+          }
+        }
+
+      String ar[] = new String[3];
       ar[0] = issueId;
       ar[1] = projectId;
+      ar[2] = versionId;
       return ar;
     }
     public String getZephyrEntityId(String projectId, String issueId) throws Exception{
@@ -216,7 +241,7 @@ public class AppTest
       }
       return entityId;
     }
-    public String getZephyrCycleId(String projectId) throws Exception{
+    public String getZephyrCycleId(String projectId, String versionId) throws Exception{
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"cycles/search?" + "versionId=" + versionId + "&projectId=" + projectId;
       URI uri = new URI(attachmentUri);
 
@@ -243,7 +268,7 @@ public class AppTest
       String cycleId = jsonObj.getString("id");
       return cycleId;
     }
-    public void attachArtifactZephyr(String issueId, String cycleId, String entityId, String projectId, String filePath) throws Exception{
+    public void attachArtifactZephyr(String issueId, String cycleId, String entityId, String projectId, String versionId, String filePath) throws Exception{
 
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) + "attachment?" + "issueId=" + issueId
           + "&versionId=" + versionId + "&entityName=" + entityName + "&cycleId=" + cycleId + "&entityId="
