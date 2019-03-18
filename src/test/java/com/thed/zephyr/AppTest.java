@@ -161,8 +161,8 @@ public class AppTest
       String entityId = getZephyrEntityId(projectId,issueId);
 
       //POST ARTIFACTS FROM CBT TO JIRA THROUGH ZEPHYR
-      String filePath = "/Users/patrick.richardson/.jenkins/workspace/JenkinsZephyrAutomationProject/test/google.png";
-      String videofilePath = "/Users/patrick.richardson/.jenkins/workspace/JenkinsZephyrAutomationProject/test/myvideo.mp4";
+      String filePath = "/"; //Ex: "/Users/you/.jenkins/workspace/MyProject/mypicture.png"
+      String videofilePath = "/"; 
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, filePath);
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, videofilePath);
       
