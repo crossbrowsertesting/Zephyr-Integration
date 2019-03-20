@@ -77,12 +77,13 @@ public class AppTest
     public final String jiraPassword = "";
 
     //Version Id has to be set to use zephyr. After being set up you can find it here : 
-    public final String versionName = "";  //Ex: 1.0    
+    public final String versionName = ""; //Ex: 1.0
+
 
     //Jira Variables
     //This is the issue key an issue on Jira(this may not be generated until after your first test as Zephyr will create a new card)
     public final String issueTag = ""; //Ex: ZEP-3
-    public final String zephyrCycleName = "Our Zephyr Cycle";
+    public final String zephyrCycleName = ""; //Ex: Our Zephyr Cycle
 
     //Info that will be sent to the Jira following a passed CBT test
     public final String comment = "Attachment-through-ZAPI-CLoud";
@@ -102,6 +103,7 @@ public class AppTest
     public void testApp() throws Exception
     {
       //START CBT 
+      String driverId = null;
       try{
         System.out.println("Starting Selenium Test Through CBT");
         Builders builder = new Builders();
@@ -114,7 +116,8 @@ public class AppTest
         RemoteWebDriver driver = new RemoteWebDriver(new URL("http://" + builder.username + ":" + builder.authkey + "@hub.crossbrowsertesting.com:80/wd/hub"),capsBuilder.caps);
         
         //initialize an AutomatedTest object with our selnium session id
-        myTest = new AutomatedTest(driver.getSessionId().toString());
+        driverId = driver.getSessionId().toString();
+        myTest = new AutomatedTest(driverId);
 
         //start up a video
         Video video = myTest.startRecordingVideo();
@@ -158,13 +161,18 @@ public class AppTest
 
       //GATHER ZEPHYR INFO
       String cycleId = getZephyrCycleId(projectId, versionId);
-      String entityId = getZephyrEntityId(projectId,issueId);
+      String zephyrValues[] = getZephyrEntityId(projectId,issueId);
+      String entityId = zephyrValues[0];
+      String executionId = zephyrValues[1];
 
       //POST ARTIFACTS FROM CBT TO JIRA THROUGH ZEPHYR
-      String filePath = "/"; //Ex: "/Users/you/.jenkins/workspace/MyProject/mypicture.png"
-      String videofilePath = "/"; 
+      String filePath = ""; //Ex: "/Users/you/.jenkins/workspace/MyProject/mypicture.png"
+      String videofilePath = "";
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, filePath);
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, videofilePath);
+      String resultURL = cbtHistoryLink(driverId);
+      String zephyrComment = "Last test provided by CrossBrowserTesting.com : " + resultURL;
+      setZephyrExecutionComment(issueId, cycleId, projectId, versionId, executionId, zephyrComment);
       
     }
     public String[] getJiraProjectId() throws Exception{
@@ -207,7 +215,7 @@ public class AppTest
       ar[2] = versionId;
       return ar;
     }
-    public String getZephyrEntityId(String projectId, String issueId) throws Exception{
+    public String[] getZephyrEntityId(String projectId, String issueId) throws Exception{
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"executions?" + "issueId=" + issueId + "&offset=0&size=50" + "&projectId=" + projectId;
       URI uri = new URI(attachmentUri);
 
@@ -227,6 +235,7 @@ public class AppTest
 
       long mostRecent = 0L;
       String entityId = null;
+      String executionId = null;
 
       for (int i=0; i < executionArray.length(); i++){
         JSONObject executionSingleObject = executionArray.getJSONObject(i);
@@ -235,11 +244,16 @@ public class AppTest
         if (name.equals(zephyrCycleName)){
           long mostRecentCheck = execution.getLong("creationDate");
           if (mostRecentCheck > mostRecent){
+            executionId = execution.getString("id");
             entityId = execution.getString("id");
           }
         }
       }
-      return entityId;
+
+      String ar[] = new String[2];
+      ar[0] = entityId;
+      ar[1] = executionId;
+      return ar;
     }
     public String getZephyrCycleId(String projectId, String versionId) throws Exception{
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"cycles/search?" + "versionId=" + versionId + "&projectId=" + projectId;
@@ -268,6 +282,52 @@ public class AppTest
       String cycleId = jsonObj.getString("id");
       return cycleId;
     }
+    public void setZephyrExecutionComment(String issueId, String cycleId, String projectId, String versionId, String executionId,String comment) throws Exception{
+          String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"execution" + "/" + executionId;
+          URI uri = new URI(attachmentUri);
+          String commentObj = new JSONObject()
+            .put("projectId", projectId)
+            .put("issueId", issueId)
+            .put("cycleId", cycleId)
+            .put("versionId", versionId)
+            .put("comment", comment).toString();
+          String jwt = jwtGenerator.generateJWT("PUT", uri, expirationInSec);
+          Response response = ClientBuilder.newClient()
+            .target(attachmentUri)
+            //.register(feature)
+            .request()
+            .header("Authorization", jwt)
+            .header("zapiAccessKey", accessKey)
+            .header("Content-Type", "text/plain")
+            .put(Entity.entity(commentObj, MediaType.APPLICATION_JSON));
+          return;
+        }
+
+    public String cbtHistoryLink(String driverId) throws Exception{
+      HttpAuthenticationFeature feature = HttpAuthenticationFeature.basic(cbtUsername, cbtAuthkey);
+      String attachmentUri = "https://crossbrowsertesting.com/api/v3/selenium?format=json&num=10";
+      URI uri = new URI(attachmentUri);
+
+      Response response = ClientBuilder.newClient()
+        .target(attachmentUri)
+        .register(feature)
+        .request()
+        //.header("Content-Type", "text/plain")
+        .get();
+        JSONObject historyObj = new JSONObject(response.readEntity(String.class));
+        JSONArray seleniumHistoryArr = historyObj.getJSONArray("selenium");
+        String resultURL = null;
+        for (int i=0; i < seleniumHistoryArr.length(); i++){
+          JSONObject seleniumHistoryObj = seleniumHistoryArr.getJSONObject(i);
+          String id = seleniumHistoryObj.getString("selenium_session_id");
+          if (id.equals(driverId)){
+            resultURL = seleniumHistoryObj.getString("show_result_web_url");
+            break;
+          }
+        }
+      return resultURL;
+    }
+
     public void attachArtifactZephyr(String issueId, String cycleId, String entityId, String projectId, String versionId, String filePath) throws Exception{
 
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) + "attachment?" + "issueId=" + issueId
