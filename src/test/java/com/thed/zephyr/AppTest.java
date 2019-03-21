@@ -161,9 +161,7 @@ public class AppTest
 
       //GATHER ZEPHYR INFO
       String cycleId = getZephyrCycleId(projectId, versionId);
-      String zephyrValues[] = getZephyrEntityId(projectId,issueId);
-      String entityId = zephyrValues[0];
-      String executionId = zephyrValues[1];
+      String entityId = getZephyrEntityId(projectId,issueId);
 
       //POST ARTIFACTS FROM CBT TO JIRA THROUGH ZEPHYR
       String filePath = ""; //Ex: "/Users/you/.jenkins/workspace/MyProject/mypicture.png"
@@ -172,7 +170,7 @@ public class AppTest
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, videofilePath);
       String resultURL = cbtHistoryLink(driverId);
       String zephyrComment = "Last test provided by CrossBrowserTesting.com : " + resultURL;
-      setZephyrExecutionComment(issueId, cycleId, projectId, versionId, executionId, zephyrComment);
+      setZephyrExecutionComment(issueId, cycleId, projectId, versionId, entityId, zephyrComment);
       
     }
     public String[] getJiraProjectId() throws Exception{
@@ -215,7 +213,7 @@ public class AppTest
       ar[2] = versionId;
       return ar;
     }
-    public String[] getZephyrEntityId(String projectId, String issueId) throws Exception{
+    public String getZephyrEntityId(String projectId, String issueId) throws Exception{
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"executions?" + "issueId=" + issueId + "&offset=0&size=50" + "&projectId=" + projectId;
       URI uri = new URI(attachmentUri);
 
@@ -233,7 +231,6 @@ public class AppTest
       JSONObject executionObject = new JSONObject(response.readEntity(String.class));
       JSONArray executionArray = executionObject.getJSONArray("executions");
 
-      long mostRecent = 0L;
       String entityId = null;
       String executionId = null;
 
@@ -242,18 +239,16 @@ public class AppTest
         JSONObject execution = executionSingleObject.getJSONObject("execution");
         String name = execution.getString("cycleName");
         if (name.equals(zephyrCycleName)){
-          long mostRecentCheck = execution.getLong("creationDate");
-          if (mostRecentCheck > mostRecent){
-            executionId = execution.getString("id");
+          int issueIdInt = execution.getInt("issueId");
+          String issueIdTemp = Integer.toString(issueIdInt);
+          if (issueIdTemp.equals(issueId)){
             entityId = execution.getString("id");
+            break;
           }
         }
       }
 
-      String ar[] = new String[2];
-      ar[0] = entityId;
-      ar[1] = executionId;
-      return ar;
+      return entityId;
     }
     public String getZephyrCycleId(String projectId, String versionId) throws Exception{
       String attachmentUri = API_ZEPHYR.replace("{SERVER}", zephyrBaseUrl) +"cycles/search?" + "versionId=" + versionId + "&projectId=" + projectId;
@@ -372,3 +367,4 @@ public class AppTest
       }
     }
 }
+
