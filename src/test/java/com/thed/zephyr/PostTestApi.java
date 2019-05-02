@@ -124,9 +124,9 @@ public class PostTestApi
       String videofilePath = "";
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, filePath);
       attachArtifactZephyr(issueId, cycleId, entityId, projectId, versionId, videofilePath);
-      String resultURL = cbtHistoryLink();
-      String zephyrComment = "Last test provided by CrossBrowserTesting.com : " + resultURL;
-      setZephyrExecutionComment(issueId, cycleId, projectId, versionId, entityId, zephyrComment);
+      //String resultURL = cbtHistoryLink();
+      //String zephyrComment = "Last test provided by CrossBrowserTesting.com : " + resultURL;
+      //setZephyrExecutionComment(issueId, cycleId, projectId, versionId, entityId, zephyrComment);
     }
     public String[] getJiraInfo() throws Exception{
       HttpAuthenticationFeature feature = HttpAuthenticationFeature.basic(jiraUsername, jiraPassword);
